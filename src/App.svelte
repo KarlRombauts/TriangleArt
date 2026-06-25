@@ -1,26 +1,31 @@
 <script lang="ts">
   import Canvas from "$lib/components/Canvas.svelte";
   import Controls from "$lib/components/Controls.svelte";
-  import * as Card from "$lib/components/ui/card";
   import type { CanvasApi } from "$lib/components/canvasApi";
 
   let canvasComp = $state<CanvasApi>();
 </script>
 
-<main class="min-h-screen p-6 flex flex-col lg:flex-row gap-6 items-start">
-  <div class="flex-1 flex justify-center w-full min-w-0">
-    <Canvas bind:this={canvasComp} />
-  </div>
+<div class="flex h-screen flex-col overflow-hidden">
+  <header class="flex items-baseline gap-3 border-b border-border/60 px-6 py-4">
+    <h1 class="font-display text-2xl leading-none font-semibold tracking-tight">Triangle&nbsp;Art</h1>
+    <p class="hidden text-sm text-muted-foreground sm:block">Generative image triangulation</p>
+    <span class="ml-auto text-xs text-muted-foreground/70">
+      Pick a look, drop a photo, or try your camera
+    </span>
+  </header>
 
-  <Card.Root class="w-full lg:w-80 shrink-0">
-    <Card.Header>
-      <Card.Title>Triangle Art</Card.Title>
-      <Card.Description>Recursive triangle subdivision driven by image brightness.</Card.Description>
-    </Card.Header>
-    <Card.Content>
+  <div class="flex min-h-0 flex-1 flex-col lg:flex-row">
+    <section class="grid min-h-0 flex-1 place-items-center p-4 sm:p-6">
+      <Canvas bind:this={canvasComp} />
+    </section>
+
+    <aside
+      class="w-full shrink-0 overflow-y-auto border-t border-border/60 bg-card/40 p-6 backdrop-blur lg:w-[360px] lg:border-t-0 lg:border-l"
+    >
       {#if canvasComp}
         <Controls canvasApi={canvasComp} />
       {/if}
-    </Card.Content>
-  </Card.Root>
-</main>
+    </aside>
+  </div>
+</div>

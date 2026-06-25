@@ -227,7 +227,7 @@
 >
   <canvas
     bind:this={canvasEl}
-    class="block w-auto h-auto max-w-full max-h-[82vh] rounded-[10px]"
+    class="block h-auto max-h-[82vh] w-auto max-w-full rounded-[10px] shadow-2xl shadow-black/50"
   ></canvas>
   <CompareSlider src={originalSrc} active={settings.compare && !isWebcam} />
   {#if dragging}
