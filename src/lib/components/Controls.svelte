@@ -29,7 +29,7 @@
     if (file) canvasApi.loadFile(file);
   }
 
-  // Detail slider runs intuitively: drag right = MORE detail (lower threshold).
+  // Detail slider runs intuitively: drag right (d=1) = MORE detail (lower threshold).
   const SPAN = DETAIL_MAX - DETAIL_MIN;
   const detailFromThreshold = (t: number) => (DETAIL_MAX - t) / SPAN;
   const thresholdFromDetail = (d: number) => DETAIL_MAX - d * SPAN;

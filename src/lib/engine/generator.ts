@@ -21,10 +21,12 @@ export class TriangleGenerator {
   private frontier: TreeNode[] = [];
   private head = 0;
   private nodeCount = 0;
+  private imageArea = 1;
 
   reset(img: ImageLike, opts: GeneratorOptions): void {
     this.img = img;
     this.opts = { maxNodes: 1_000_000, minArea: 1, ...opts };
+    this.imageArea = Math.max(1, img.width * img.height);
     const root = createImageRectangle(img.width, img.height);
     root.inheritedCutoff = Infinity;
     this.frontier = [root];
@@ -59,9 +61,12 @@ export class TriangleGenerator {
       }
 
       const analysis = analyzeTriangle(this.img, node.points, this.opts.minArea);
-      if (!analysis) continue; // too small / no valid split
-      const effective = Math.min(node.inheritedCutoff, analysis.score);
-      if (effective < this.opts.threshold) continue; // edge too weak at this detail
+      if (!analysis) continue; // too small / can't sample
+      // Density follows average luminosity weighted by area (brighter + larger
+      // triangles subdivide more); the cut itself follows the light/dark boundary.
+      const cutoff = (analysis.mean * node.area) / this.imageArea;
+      const effective = Math.min(node.inheritedCutoff, cutoff);
+      if (effective < this.opts.threshold) continue;
 
       const { children, segments } = node.splitTriangle(analysis.splitParam);
       for (const c of children) c.inheritedCutoff = effective;

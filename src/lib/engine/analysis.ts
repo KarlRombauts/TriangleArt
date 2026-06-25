@@ -10,7 +10,8 @@ import {
 } from "./geometry";
 
 export type ImageLike = { data: Uint8ClampedArray | number[]; width: number; height: number };
-export type TriangleAnalysis = { score: number; splitParam: number };
+/** `mean` drives the subdivide decision (× area); `splitParam` is where to cut. */
+export type TriangleAnalysis = { mean: number; splitParam: number };
 
 const BINS = 24;
 const MAX_STRIDE = 3;
@@ -21,13 +22,12 @@ function sign(px: number, py: number, ax: number, ay: number, bx: number, by: nu
 }
 
 /**
- * Find the best longest-edge split for a triangle: the cut (cevian from the
- * vertex opposite the longest edge) that maximizes the brightness difference
- * between the two halves (1-D Otsu over the fan coordinate), subject to a minimum
- * child angle. The returned `score` is the triangle's edge strength (between-class
- * variance); `splitParam` is where on the longest edge to cut. Returns null if the
- * triangle is below `minArea`, has too few samples, or has no valid (non-sliver)
- * split.
+ * Analyze a triangle for subdivision. Returns its average luminosity `mean`
+ * (the generator multiplies this by area to decide whether to subdivide) and the
+ * `splitParam` — where on the longest edge to cut so the cevian from the opposite
+ * vertex best separates light from dark (1-D Otsu over the fan coordinate,
+ * respecting a minimum child angle; falls back to the midpoint). Returns null only
+ * if the triangle is below `minArea` or can't be sampled.
  */
 export function analyzeTriangle(
   img: ImageLike,
@@ -79,11 +79,12 @@ export function analyzeTriangle(
     }
   }
   if (total < 2) return null;
+  const mean = totalSum / total;
 
   let leftCount = 0;
   let leftSum = 0;
   let bestScore = -1;
-  let bestS = 0.5;
+  let bestS = 0.5; // midpoint fallback if no valid Otsu split is found
   for (let k = 0; k < BINS - 1; k++) {
     leftCount += binCount[k];
     leftSum += binSum[k];
@@ -106,6 +107,5 @@ export function analyzeTriangle(
       bestS = s;
     }
   }
-  if (bestScore < 0) return null; // no valid (non-sliver) split
-  return { score: bestScore, splitParam: bestS };
+  return { mean, splitParam: bestS };
 }

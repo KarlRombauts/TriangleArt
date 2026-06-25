@@ -15,7 +15,7 @@ function halfSplit(w: number, h: number, edgeX: number): ImageLike {
   return { data, width: w, height: h };
 }
 
-test("uniform triangle has ~zero edge strength", () => {
+test("uniform white triangle reports mean ~255", () => {
   const w = 200,
     h = 200;
   const data = new Uint8ClampedArray(w * h * 4).fill(255);
@@ -25,10 +25,10 @@ test("uniform triangle has ~zero edge strength", () => {
     { x: 0, y: 199 },
   ]);
   expect(a).not.toBeNull();
-  expect(a!.score).toBeLessThan(1);
+  expect(a!.mean).toBeCloseTo(255, 0);
 });
 
-test("triangle over a vertical edge yields high score and a split near the edge", () => {
+test("triangle over a vertical edge: mean ~half, cut near the edge", () => {
   const w = 201,
     h = 151;
   const img = halfSplit(w, h, 100);
@@ -41,7 +41,8 @@ test("triangle over a vertical edge yields high score and a split near the edge"
     { x: 200, y: 0 },
   ]);
   expect(a).not.toBeNull();
-  expect(a!.score).toBeGreaterThan(1000);
+  expect(a!.mean).toBeGreaterThan(80);
+  expect(a!.mean).toBeLessThan(175);
   expect(a!.splitParam).toBeGreaterThan(0.4);
   expect(a!.splitParam).toBeLessThan(0.6);
 });
