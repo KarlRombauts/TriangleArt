@@ -4,6 +4,14 @@
 **Status:** Approved (pending written-spec review)
 **Builds on:** the shipped interactive demo + worker/cutoff enhancements.
 
+> **Revision (implemented):** During tuning, contrast-based *density* (Otsu
+> edge-strength × area) was found to leave gaps over smooth regions and read
+> worse. Final implementation keeps the **adaptive cut** (longest edge, split at
+> the light/dark Otsu boundary) but drives **density by average luminosity × area**
+> (the original representational rule). `analyzeTriangle` returns `{ mean,
+> splitParam }`; the generator subdivides on `mean × area / imageArea ≥ threshold`.
+> The colour→polarity removal and general-triangle changes stand as written.
+
 ## Overview
 
 Replace the current subdivision (always split a right triangle at its
