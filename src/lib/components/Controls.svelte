@@ -54,10 +54,27 @@
     </label>
   </div>
 
-  <label class="flex items-center gap-2 text-sm">
-    <input type="checkbox" bind:checked={settings.compare} />
-    Compare with original
-  </label>
+  {#if !canvasApi.getIsWebcam()}
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" bind:checked={settings.compare} />
+      Compare with original
+    </label>
+  {/if}
+
+  <div class="space-y-2">
+    <Label>Webcam</Label>
+    <div class="flex flex-wrap gap-2">
+      {#if !canvasApi.getIsWebcam()}
+        <Button variant="outline" size="sm" onclick={() => canvasApi.startWebcam()}>Start webcam</Button>
+      {:else}
+        <Button variant="outline" size="sm" onclick={() => canvasApi.freezeWebcam()}>Freeze</Button>
+        <Button variant="destructive" size="sm" onclick={() => canvasApi.stopWebcam()}>Stop</Button>
+      {/if}
+    </div>
+    {#if canvasApi.getWebcamError()}
+      <p class="text-xs text-destructive">{canvasApi.getWebcamError()}</p>
+    {/if}
+  </div>
 
   <div class="space-y-2">
     <Label>Presets</Label>

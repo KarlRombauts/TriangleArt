@@ -6,7 +6,8 @@
   import { derivePolarity } from "$lib/engine/polarity";
   import { settings } from "$lib/state.svelte";
   import { DEFAULT_SAMPLE } from "$lib/samples";
-  import { DETAIL_MIN } from "$lib/constants";
+  import { DETAIL_MIN, WEBCAM_MAX_EDGE, WEBCAM_THRESHOLD, WEBCAM_MAX_SAMPLES } from "$lib/constants";
+  import { startCamera, captureFrame } from "$lib/webcam";
   import CompareSlider from "./CompareSlider.svelte";
   import type { ImageLike } from "$lib/engine/brightness";
   import type { Segment } from "$lib/engine/geometry";
@@ -18,6 +19,12 @@
   let current: ImageLike | null = null;
   let allSegments: Segment[] = [];
   let originalSrc = $state("");
+
+  let isWebcam = $state(false);
+  let webcamError = $state("");
+  let stream: MediaStream | null = null;
+  let video: HTMLVideoElement | null = null;
+  let webcamRunning = false;
 
   const style = (): RenderStyle => ({
     background: settings.background,
@@ -36,6 +43,69 @@
   }
   export function getOriginalSrc() {
     return originalSrc;
+  }
+  export function getIsWebcam() {
+    return isWebcam;
+  }
+  export function getWebcamError() {
+    return webcamError;
+  }
+
+  export async function startWebcam() {
+    webcamError = "";
+    try {
+      stream = await startCamera();
+    } catch {
+      webcamError = "Camera access was denied or unavailable.";
+      return;
+    }
+    video = document.createElement("video");
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+    await video.play();
+    settings.compare = false;
+    isWebcam = true;
+    webcamRunning = true;
+    void pumpWebcam();
+  }
+
+  async function pumpWebcam() {
+    if (!webcamRunning || !video || !ctx || !canvasEl) return;
+    const cap = captureFrame(video, WEBCAM_MAX_EDGE);
+    if (cap) {
+      if (canvasEl.width !== cap.width || canvasEl.height !== cap.height) {
+        canvasEl.width = cap.width;
+        canvasEl.height = cap.height;
+      }
+      current = cap.image;
+      const segs = await client.frame(cap.image, {
+        subdivideOn: derivePolarity(settings.line, settings.background),
+        threshold: WEBCAM_THRESHOLD,
+        maxSamples: WEBCAM_MAX_SAMPLES,
+      });
+      if (webcamRunning && ctx) {
+        allSegments = segs;
+        redrawAll(ctx, segs, style(), -Infinity);
+      }
+    }
+    if (webcamRunning) requestAnimationFrame(() => void pumpWebcam());
+  }
+
+  export function freezeWebcam() {
+    webcamRunning = false; // keep the last frame + segments for export
+    stopStream();
+  }
+  export function stopWebcam() {
+    webcamRunning = false;
+    isWebcam = false;
+    stopStream();
+    void loadSrc(DEFAULT_SAMPLE.src);
+  }
+  function stopStream() {
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
+    video = null;
   }
 
   function redraw() {
@@ -80,7 +150,11 @@
   onMount(() => {
     ctx = canvasEl!.getContext("2d");
     void loadSrc(DEFAULT_SAMPLE.src);
-    return () => client.dispose();
+    return () => {
+      webcamRunning = false;
+      stopStream();
+      client.dispose();
+    };
   });
 
   // Reactive rules: polarity flip rebuilds; threshold/colour/width just redraw
@@ -98,7 +172,7 @@
     const bg = settings.background;
     const ln = settings.line;
 
-    if (!ctx || !current) return;
+    if (!ctx || !current || isWebcam) return;
 
     if (polarity !== lastPolarity) {
       lastPolarity = polarity;
@@ -140,7 +214,7 @@
   ondrop={onDrop}
 >
   <canvas bind:this={canvasEl} class="max-w-full h-auto rounded-lg block"></canvas>
-  <CompareSlider src={originalSrc} active={settings.compare} />
+  <CompareSlider src={originalSrc} active={settings.compare && !isWebcam} />
   {#if dragging}
     <div
       class="absolute inset-0 grid place-items-center bg-background/70 text-sm font-medium rounded-lg pointer-events-none"
