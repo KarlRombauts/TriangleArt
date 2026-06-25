@@ -68,7 +68,7 @@ export class TriangleGenerator {
       const effective = Math.min(node.inheritedCutoff, cutoff);
       if (effective < this.opts.threshold) continue;
 
-      const { children, segments } = node.splitTriangle(analysis.splitParam);
+      const { children, segments } = node.divideTriangle();
       for (const c of children) c.inheritedCutoff = effective;
       for (const s of segments) {
         s.cutoff = effective;

@@ -1,4 +1,31 @@
-import { add, mag, scale, sub, longestEdge, triangleArea, type Point, type Segment } from "./geometry";
+import {
+  add,
+  dot,
+  mag,
+  scale,
+  sub,
+  rotate,
+  raySegmentParam,
+  triangleArea,
+  triangleMinAngleDeg,
+  type Point,
+  type Segment,
+} from "./geometry";
+
+const MIN_ANGLE_DEG = 10;
+const JITTER_DEG = 10;
+
+/** Deterministic pseudo-random in [0,1) from a point — keeps builds reproducible. */
+function hash01(p: Point): number {
+  const v = Math.sin(p.x * 12.9898 + p.y * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+}
+
+/** Foot on segment e0-e1 of the ray from v through `aim`. */
+function footOf(v: Point, aim: Point, e0: Point, e1: Point): Point {
+  const u = raySegmentParam(v, aim, e0, e1);
+  return add(e0, scale(sub(e1, e0), u));
+}
 
 export class TreeNode {
   parent: TreeNode | null;
@@ -33,16 +60,40 @@ export class TreeNode {
   }
 
   /**
-   * Split the longest edge at parameter `s`: a cut from the opposite vertex `v`
-   * to `m = e0 + s*(e1-e0)`. Children are (v,e0,m) and (v,m,e1), sharing the new
-   * edge v->m. cutoff is a placeholder; the generator sets it.
+   * Split a triangle with a cut from p0 to the opposite edge p1-p2. The base cut
+   * is the perpendicular (altitude) foot — the classic right-angle bisection —
+   * rotated about p0 by a deterministic ±JITTER_DEG to break up the rigid
+   * pinwheel pattern. The jitter is reduced if it would push either child below
+   * MIN_ANGLE_DEG (no slivers). Children are (foot,p0,p1) and (foot,p0,p2),
+   * sharing the new edge foot->p0. cutoff is a placeholder; the generator sets it.
    */
-  splitTriangle(s: number): { children: TreeNode[]; segments: Segment[] } {
+  divideTriangle(): { children: TreeNode[]; segments: Segment[] } {
     const p = this.points;
-    const { v, e0, e1 } = longestEdge(p[0], p[1], p[2]);
-    const m = add(e0, scale(sub(e1, e0), s));
-    this.children = [new TreeNode(this, [v, e0, m]), new TreeNode(this, [v, m, e1])];
-    const seg: Segment = { x1: v.x, y1: v.y, x2: m.x, y2: m.y, cutoff: Infinity };
+    const e = sub(p[2], p[1]);
+    const eLen2 = dot(e, e) || 1;
+    const t0 = Math.max(0, Math.min(1, dot(sub(p[0], p[1]), e) / eLen2));
+    const foot0 = add(p[1], scale(e, t0)); // perpendicular (altitude) foot
+
+    const centroid = scale(add(add(p[0], p[1]), p[2]), 1 / 3);
+    let delta = (hash01(centroid) * 2 - 1) * JITTER_DEG;
+    let foot = delta === 0 ? foot0 : footOf(p[0], add(p[0], rotate(sub(foot0, p[0]), delta)), p[1], p[2]);
+
+    let guard = 0;
+    while (
+      guard++ < 8 &&
+      (triangleMinAngleDeg(foot, p[0], p[1]) < MIN_ANGLE_DEG ||
+        triangleMinAngleDeg(foot, p[0], p[2]) < MIN_ANGLE_DEG)
+    ) {
+      delta *= 0.5;
+      foot = delta === 0 ? foot0 : footOf(p[0], add(p[0], rotate(sub(foot0, p[0]), delta)), p[1], p[2]);
+      if (Math.abs(delta) < 0.01) {
+        foot = foot0;
+        break;
+      }
+    }
+
+    this.children = [new TreeNode(this, [foot, p[0], p[1]]), new TreeNode(this, [foot, p[0], p[2]])];
+    const seg: Segment = { x1: foot.x, y1: foot.y, x2: p[0].x, y2: p[0].y, cutoff: Infinity };
     return { children: this.children, segments: [seg] };
   }
 }

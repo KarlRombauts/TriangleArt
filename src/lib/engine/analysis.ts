@@ -1,33 +1,20 @@
-import {
-  add,
-  scale,
-  sub,
-  triangleArea,
-  longestEdge,
-  triangleMinAngleDeg,
-  raySegmentParam,
-  type Point,
-} from "./geometry";
+import { triangleArea, type Point } from "./geometry";
 
 export type ImageLike = { data: Uint8ClampedArray | number[]; width: number; height: number };
-/** `mean` drives the subdivide decision (× area); `splitParam` is where to cut. */
-export type TriangleAnalysis = { mean: number; splitParam: number };
+/** `mean` is the triangle's average luminosity; the generator multiplies it by area. */
+export type TriangleAnalysis = { mean: number };
 
-const BINS = 24;
 const MAX_STRIDE = 3;
-const MIN_ANGLE_DEG = 10;
 
 function sign(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
   return (px - bx) * (ay - by) - (ax - bx) * (py - by);
 }
 
 /**
- * Analyze a triangle for subdivision. Returns its average luminosity `mean`
- * (the generator multiplies this by area to decide whether to subdivide) and the
- * `splitParam` — where on the longest edge to cut so the cevian from the opposite
- * vertex best separates light from dark (1-D Otsu over the fan coordinate,
- * respecting a minimum child angle; falls back to the midpoint). Returns null only
- * if the triangle is below `minArea` or can't be sampled.
+ * Average luminosity of a triangle (sampled across its interior with a capped
+ * stride so large triangles can't skip over features). Coordinates are clamped to
+ * image bounds. Returns null if the triangle is below `minArea` or can't be
+ * sampled.
  */
 export function analyzeTriangle(
   img: ImageLike,
@@ -38,7 +25,6 @@ export function analyzeTriangle(
   const area = triangleArea(A, B, C);
   if (area < minArea) return null;
 
-  const { v, e0, e1 } = longestEdge(A, B, C);
   const { data, width, height } = img;
   const maxX = width - 1;
   const maxY = height - 1;
@@ -52,60 +38,19 @@ export function analyzeTriangle(
   if (stride > MAX_STRIDE) stride = MAX_STRIDE;
   if (stride < 1) stride = 1;
 
-  const binCount = new Float64Array(BINS);
-  const binSum = new Float64Array(BINS);
   let total = 0;
-  let totalSum = 0;
-
+  let sum = 0;
   for (let y = minBy; y <= maxBy; y += stride) {
     for (let x = minBx; x <= maxBx; x += stride) {
       const d1 = sign(x, y, A.x, A.y, B.x, B.y);
       const d2 = sign(x, y, B.x, B.y, C.x, C.y);
       const d3 = sign(x, y, C.x, C.y, A.x, A.y);
-      const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
-      const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
-      if (hasNeg && hasPos) continue; // outside the triangle
-
+      if ((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)) continue; // outside
       const idx = (y * width + x) * 4;
-      const b = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-      const u = raySegmentParam(v, { x, y }, e0, e1);
-      let k = Math.floor(u * BINS);
-      if (k >= BINS) k = BINS - 1;
-      if (k < 0) k = 0;
-      binCount[k]++;
-      binSum[k] += b;
+      sum += (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
       total++;
-      totalSum += b;
     }
   }
   if (total < 2) return null;
-  const mean = totalSum / total;
-
-  let leftCount = 0;
-  let leftSum = 0;
-  let bestScore = -1;
-  let bestS = 0.5; // midpoint fallback if no valid Otsu split is found
-  for (let k = 0; k < BINS - 1; k++) {
-    leftCount += binCount[k];
-    leftSum += binSum[k];
-    const rightCount = total - leftCount;
-    if (leftCount === 0 || rightCount === 0) continue;
-    const s = (k + 1) / BINS;
-    const m = add(e0, scale(sub(e1, e0), s));
-    if (
-      triangleMinAngleDeg(v, e0, m) < MIN_ANGLE_DEG ||
-      triangleMinAngleDeg(v, m, e1) < MIN_ANGLE_DEG
-    )
-      continue;
-    const m1 = leftSum / leftCount;
-    const m2 = (totalSum - leftSum) / rightCount;
-    const w1 = leftCount / total;
-    const w2 = rightCount / total;
-    const score = w1 * w2 * (m1 - m2) * (m1 - m2);
-    if (score > bestScore) {
-      bestScore = score;
-      bestS = s;
-    }
-  }
-  return { mean, splitParam: bestS };
+  return { mean: sum / total };
 }

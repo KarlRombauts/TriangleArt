@@ -28,13 +28,8 @@ test("uniform white triangle reports mean ~255", () => {
   expect(a!.mean).toBeCloseTo(255, 0);
 });
 
-test("triangle over a vertical edge: mean ~half, cut near the edge", () => {
-  const w = 201,
-    h = 151;
-  const img = halfSplit(w, h, 100);
-  // Symmetric triangle: apex directly above the image edge (x=100), longest edge
-  // is the bottom (0,0)-(200,0). The fan from the apex straight down meets the
-  // bottom at its midpoint, where the image edge is -> best split ~0.5.
+test("triangle straddling a vertical edge reports a mid mean", () => {
+  const img = halfSplit(201, 151, 100);
   const a = analyzeTriangle(img, [
     { x: 100, y: 140 },
     { x: 0, y: 0 },
@@ -43,8 +38,6 @@ test("triangle over a vertical edge: mean ~half, cut near the edge", () => {
   expect(a).not.toBeNull();
   expect(a!.mean).toBeGreaterThan(80);
   expect(a!.mean).toBeLessThan(175);
-  expect(a!.splitParam).toBeGreaterThan(0.4);
-  expect(a!.splitParam).toBeLessThan(0.6);
 });
 
 test("returns null for a sub-minArea triangle", () => {
