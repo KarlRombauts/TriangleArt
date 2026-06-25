@@ -14,13 +14,6 @@ export const normalize = (v: Point): Point => {
 
 export const cross = (a: Point, b: Point): number => a.x * b.y - a.y * b.x;
 
-export function rotate(v: Point, deg: number): Point {
-  const r = (deg * Math.PI) / 180;
-  const c = Math.cos(r);
-  const s = Math.sin(r);
-  return { x: v.x * c - v.y * s, y: v.x * s + v.y * c };
-}
-
 export function triangleArea(a: Point, b: Point, c: Point): number {
   return Math.abs(cross(sub(b, a), sub(c, a))) / 2;
 }

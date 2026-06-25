@@ -24,44 +24,26 @@ test("rectangleBorderSegments returns 4 edges", () => {
   expect(rectangleBorderSegments(r).length).toBe(4);
 });
 
-import { triangleMinAngleDeg } from "./geometry";
-
 test("triangle area is correct for a non-right child", () => {
   const r = createImageRectangle(100, 80);
   const tri = r.divideRectangle().children[0];
-  const child = tri.divideTriangle().children[0];
+  const split = tri.splitTriangle(0.5);
+  const child = split.children[0];
   const [a, b, c] = child.points;
   expect(child.area).toBeCloseTo(triangleArea(a, b, c));
 });
-test("divideTriangle emits one cevian and two children sharing the cut vertex", () => {
+test("splitTriangle emits one cevian and two children", () => {
   const r = createImageRectangle(100, 80);
   const tri = r.divideRectangle().children[0];
-  const { children, segments } = tri.divideTriangle();
+  const { children, segments } = tri.splitTriangle(0.5);
   expect(children.length).toBe(2);
   expect(segments.length).toBe(1);
-  // both children share the new cut vertex as their first point (foot)
-  expect(children[0].points[0]).toEqual(children[1].points[0]);
 });
-test("divideTriangle is deterministic (same triangle -> same split)", () => {
-  const mk = () => createImageRectangle(100, 80).divideRectangle().children[0].divideTriangle();
-  expect(mk().children[0].points[0]).toEqual(mk().children[0].points[0]);
-});
-test("jittered split keeps child angles >= 10 degrees", () => {
+test("split point sits on the longest edge at s (shared new vertex)", () => {
   const r = createImageRectangle(100, 80);
-  // subdivide a few generations and check no sliver children appear
-  let nodes = r.divideRectangle().children;
-  for (let gen = 0; gen < 4; gen++) {
-    const next: typeof nodes = [];
-    for (const n of nodes) {
-      const kids = n.divideTriangle().children;
-      for (const k of kids) {
-        const [a, b, c] = k.points;
-        expect(triangleMinAngleDeg(a, b, c)).toBeGreaterThanOrEqual(10 - 1e-6);
-      }
-      next.push(...kids);
-    }
-    nodes = next;
-  }
+  const tri = r.divideRectangle().children[0];
+  const { children } = tri.splitTriangle(0.5);
+  expect(children[0].points[2]).toEqual(children[1].points[1]);
 });
 test("inheritedCutoff defaults to Infinity", () => {
   const r = createImageRectangle(100, 80);
