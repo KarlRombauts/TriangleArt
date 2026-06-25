@@ -1,10 +1,12 @@
-import { add, dot, mag, normalize, scale, sub, type Point, type Segment } from "./geometry";
+import { add, mag, scale, sub, longestEdge, triangleArea, type Point, type Segment } from "./geometry";
 
 export class TreeNode {
   parent: TreeNode | null;
   points: Point[];
   children: TreeNode[] = [];
   depth: number;
+  /** Cutoff cap inherited from ancestors; keeps emitted cutoffs monotone. */
+  inheritedCutoff = Infinity;
 
   constructor(parent: TreeNode | null, points: Point[]) {
     this.parent = parent;
@@ -14,45 +16,33 @@ export class TreeNode {
 
   get area(): number {
     const p = this.points;
-    if (p.length === 3) {
-      // Right-angle triangle: legs run from p0 to p1 and p0 to p2.
-      return (mag(sub(p[1], p[0])) * mag(sub(p[2], p[0]))) / 2;
-    }
+    if (p.length === 3) return triangleArea(p[0], p[1], p[2]);
     // Rectangle: adjacent edges from p0 are p0->p1 and p0->p3 (p2 is the diagonal corner).
     return mag(sub(p[1], p[0])) * mag(sub(p[3], p[0]));
   }
 
-  divide(): { children: TreeNode[]; segments: Segment[] } {
-    if (this.points.length === 4) return this.divideRectangle();
-    if (this.points.length === 3) return this.divideTriangle();
-    throw new Error("Cannot divide polygon with more than 4 sides");
-  }
-
-  private divideRectangle(): { children: TreeNode[]; segments: Segment[] } {
+  /** Seed split: rectangle -> two triangles along its diagonal p0->p2. */
+  divideRectangle(): { children: TreeNode[]; segments: Segment[] } {
     const p = this.points;
     this.children = [
       new TreeNode(this, [p[1], p[2], p[0]]),
       new TreeNode(this, [p[3], p[0], p[2]]),
     ];
-    // The two triangles share the rectangle's diagonal p0 -> p2.
-    // cutoff is a placeholder; the generator overrides it with the node's cutoff.
     const seg: Segment = { x1: p[0].x, y1: p[0].y, x2: p[2].x, y2: p[2].y, cutoff: Infinity };
     return { children: this.children, segments: [seg] };
   }
 
-  private divideTriangle(): { children: TreeNode[]; segments: Segment[] } {
+  /**
+   * Split the longest edge at parameter `s`: a cut from the opposite vertex `v`
+   * to `m = e0 + s*(e1-e0)`. Children are (v,e0,m) and (v,m,e1), sharing the new
+   * edge v->m. cutoff is a placeholder; the generator sets it.
+   */
+  splitTriangle(s: number): { children: TreeNode[]; segments: Segment[] } {
     const p = this.points;
-    const hyp = sub(p[2], p[1]);
-    const side = sub(p[0], p[1]);
-    const unit = normalize(hyp);
-    const bisector = add(scale(unit, dot(unit, side)), p[1]);
-    this.children = [
-      new TreeNode(this, [bisector, p[0], p[1]]),
-      new TreeNode(this, [bisector, p[0], p[2]]),
-    ];
-    // The new dividing line shared by both children is bisector -> p0.
-    // cutoff is a placeholder; the generator overrides it with the node's cutoff.
-    const seg: Segment = { x1: bisector.x, y1: bisector.y, x2: p[0].x, y2: p[0].y, cutoff: Infinity };
+    const { v, e0, e1 } = longestEdge(p[0], p[1], p[2]);
+    const m = add(e0, scale(sub(e1, e0), s));
+    this.children = [new TreeNode(this, [v, e0, m]), new TreeNode(this, [v, m, e1])];
+    const seg: Segment = { x1: v.x, y1: v.y, x2: m.x, y2: m.y, cutoff: Infinity };
     return { children: this.children, segments: [seg] };
   }
 }
