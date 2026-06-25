@@ -7,7 +7,7 @@
   import { settings } from "$lib/state.svelte";
   import { DEFAULT_SAMPLE } from "$lib/samples";
   import { DETAIL_MIN, WEBCAM_MAX_EDGE, WEBCAM_THRESHOLD, WEBCAM_MAX_SAMPLES } from "$lib/constants";
-  import { startCamera, captureFrame } from "$lib/webcam";
+  import { startCamera, captureFrame, imageToDataUrl } from "$lib/webcam";
   import CompareSlider from "./CompareSlider.svelte";
   import type { ImageLike } from "$lib/engine/brightness";
   import type { Segment } from "$lib/engine/geometry";
@@ -93,8 +93,20 @@
   }
 
   export function freezeWebcam() {
-    webcamRunning = false; // keep the last frame + segments for export
+    webcamRunning = false;
     stopStream();
+    // Turn the frozen frame into a normal editable still: this re-enables the
+    // style/detail controls and restores "Start webcam" so it can be resumed.
+    isWebcam = false;
+    if (current) {
+      originalSrc = imageToDataUrl(current);
+      lastPolarity = derivePolarity(settings.line, settings.background);
+      lastThreshold = settings.threshold;
+      lastLineWidth = settings.lineWidth;
+      lastBackground = settings.background;
+      lastLine = settings.line;
+      build(); // rebuild at full detail so the Detail slider spans its full range
+    }
   }
   export function stopWebcam() {
     webcamRunning = false;
@@ -213,7 +225,10 @@
   ondragleave={() => (dragging = false)}
   ondrop={onDrop}
 >
-  <canvas bind:this={canvasEl} class="max-w-full h-auto rounded-lg block"></canvas>
+  <canvas
+    bind:this={canvasEl}
+    class="block w-auto h-auto max-w-full max-h-[82vh] rounded-[10px]"
+  ></canvas>
   <CompareSlider src={originalSrc} active={settings.compare && !isWebcam} />
   {#if dragging}
     <div
