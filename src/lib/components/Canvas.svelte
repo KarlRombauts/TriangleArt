@@ -1,24 +1,22 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { TriangleGenerator } from "$lib/engine/generator";
-  import {
-    redrawAll,
-    drawSegments,
-    type RenderStyle,
-  } from "$lib/render/canvasRenderer";
+  import { GeneratorClient } from "$lib/worker/generatorClient";
+  import { redrawAll, drawSegments, clearCanvas, type RenderStyle } from "$lib/render/canvasRenderer";
   import { loadImageFromSrc, loadImageFromFile } from "$lib/image/loadImage";
   import { derivePolarity } from "$lib/engine/polarity";
   import { settings } from "$lib/state.svelte";
   import { DEFAULT_SAMPLE } from "$lib/samples";
+  import { DETAIL_MIN } from "$lib/constants";
   import type { ImageLike } from "$lib/engine/brightness";
   import type { Segment } from "$lib/engine/geometry";
 
   let canvasEl = $state<HTMLCanvasElement>();
   let dragging = $state(false);
   let ctx: CanvasRenderingContext2D | null = null;
-  let gen = new TriangleGenerator();
+  const client = new GeneratorClient();
   let current: ImageLike | null = null;
-  let raf = 0;
+  let allSegments: Segment[] = [];
+  let originalSrc = $state("");
 
   const style = (): RenderStyle => ({
     background: settings.background,
@@ -26,32 +24,47 @@
     lineWidth: settings.lineWidth,
   });
 
-  // Public API (accessible via bind:this from the parent).
-  export function getCanvas(): HTMLCanvasElement {
+  export function getCanvas() {
     return canvasEl!;
   }
   export function getSegments(): Segment[] {
-    return gen.segments;
+    return allSegments.filter((s) => s.cutoff >= settings.threshold);
   }
   export function getSize() {
     return { width: current?.width ?? 0, height: current?.height ?? 0 };
   }
+  export function getOriginalSrc() {
+    return originalSrc;
+  }
 
-  function regenerate() {
+  function redraw() {
+    if (ctx && current) redrawAll(ctx, allSegments, style(), settings.threshold);
+  }
+
+  // Build to the finest detail (DETAIL_MIN) once; the slider then filters by
+  // cutoff without recomputing. The worker streams batches we draw as they land.
+  function build() {
     if (!ctx || !current) return;
-    gen.reset(current, {
-      threshold: settings.threshold,
-      subdivideOn: derivePolarity(settings.line, settings.background),
-    });
-    redrawAll(ctx, gen.segments, style()); // background + border, build continues in loop
+    allSegments = [];
+    clearCanvas(ctx, style());
+    client.load(
+      current,
+      { subdivideOn: derivePolarity(settings.line, settings.background), threshold: DETAIL_MIN, maxSamples: 10 },
+      (segs) => {
+        allSegments.push(...segs);
+        if (ctx) drawSegments(ctx, segs, style(), settings.threshold);
+      },
+    );
   }
 
   export async function loadSrc(src: string) {
     const { image, width, height } = await loadImageFromSrc(src);
+    originalSrc = src;
     applyImage(image, width, height);
   }
   export async function loadFile(file: File) {
     const { image, width, height } = await loadImageFromFile(file);
+    originalSrc = URL.createObjectURL(file);
     applyImage(image, width, height);
   }
   function applyImage(image: ImageLike, width: number, height: number) {
@@ -60,25 +73,17 @@
       canvasEl.width = width;
       canvasEl.height = height;
     }
-    regenerate();
-  }
-
-  function loop() {
-    if (ctx && !gen.done) {
-      const fresh = gen.step(settings.buildSpeed);
-      if (fresh.length) drawSegments(ctx, fresh, style());
-    }
-    raf = requestAnimationFrame(loop);
+    build();
   }
 
   onMount(() => {
     ctx = canvasEl!.getContext("2d");
     void loadSrc(DEFAULT_SAMPLE.src);
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => client.dispose();
   });
 
-  // Single reactive effect decides regen vs live redraw, so the two never race.
+  // Reactive rules: polarity flip rebuilds; threshold/colour/width just redraw
+  // (filtered) — no recompute, no flicker.
   let lastThreshold = settings.threshold;
   let lastPolarity = derivePolarity(settings.line, settings.background);
   let lastLineWidth = settings.lineWidth;
@@ -94,18 +99,21 @@
 
     if (!ctx || !current) return;
 
-    if (t !== lastThreshold || polarity !== lastPolarity) {
-      lastThreshold = t;
+    if (polarity !== lastPolarity) {
       lastPolarity = polarity;
+      lastThreshold = t;
       lastLineWidth = lw;
       lastBackground = bg;
       lastLine = ln;
-      regenerate();
+      build();
+    } else if (t !== lastThreshold) {
+      lastThreshold = t;
+      redraw();
     } else if (lw !== lastLineWidth || bg !== lastBackground || ln !== lastLine) {
       lastLineWidth = lw;
       lastBackground = bg;
       lastLine = ln;
-      redrawAll(ctx, gen.segments, style());
+      redraw();
     }
   });
 
