@@ -1,10 +1,9 @@
 import { mag, sub, type Point } from "./geometry";
 
-export type ImageLike = {
-  data: Uint8ClampedArray | number[];
-  width: number;
-  height: number;
-};
+// ImageLike now lives in analysis.ts; re-exported here so existing importers keep
+// compiling until they are repointed (this file is deleted in a later task).
+export type { ImageLike } from "./analysis";
+import type { ImageLike } from "./analysis";
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
