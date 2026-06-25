@@ -8,6 +8,13 @@ export type ImageLike = {
 
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
+// Maximum gap (in pixels) between samples. Capping the stride means even a very
+// large triangle samples every few pixels, so it can't skip over thin features
+// (which caused big triangles to straddle sharp edges) and its mean is stable
+// in noisy regions (which caused speckle artifacts). Large triangles are few, so
+// the extra samples are cheap.
+const MAX_STRIDE = 3;
+
 /**
  * Mean brightness (0-255) of pixels sampled across a triangle.
  *
@@ -30,7 +37,9 @@ export function getAverageBrightnessInTriangle(
   const heightMag = mag(height);
 
   const totalPixels = Math.abs((baseMag * heightMag) / 2);
-  const stepSize = Math.round(Math.sqrt(totalPixels / Math.min(totalPixels, maxSample)));
+  let stepSize = Math.round(Math.sqrt(totalPixels / Math.min(totalPixels, maxSample)));
+  if (stepSize > MAX_STRIDE) stepSize = MAX_STRIDE;
+  if (stepSize < 1) stepSize = 1;
 
   const { data, width } = img;
   const maxX = width - 1;
