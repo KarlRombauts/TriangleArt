@@ -1,22 +1,16 @@
 import type { Segment } from "./geometry";
 import { createImageRectangle, rectangleBorderSegments, TreeNode } from "./tree";
-import { getAverageBrightnessInTriangle, type ImageLike } from "./brightness";
+import { analyzeTriangle, type ImageLike } from "./analysis";
 
-export type SubdivideOn = "bright" | "dark";
-
-export type GeneratorOptions = {
-  threshold: number;
-  subdivideOn: SubdivideOn;
-  maxSamples?: number;
-  maxNodes?: number;
-  minArea?: number;
-};
+export type GeneratorOptions = { threshold: number; maxNodes?: number; minArea?: number };
 
 /**
- * Stateful, incremental triangle subdivision. `reset` seeds the root rectangle;
- * `step(n)` processes up to n frontier nodes per call (drive it from a rAF loop).
- * The shared segment list is the single source of truth for both canvas
- * rendering and SVG export.
+ * Adaptive, edge-following triangle subdivision. The seed rectangle splits along
+ * its diagonal; each triangle is then split across its longest edge at the point
+ * of strongest brightness change (`analyzeTriangle`), as long as that edge
+ * strength clears the threshold. Emitted segment cutoffs are capped to the
+ * parent's so they stay monotone — letting the renderer filter by detail without
+ * recomputing, exactly equal to a fresh build at that threshold.
  */
 export class TriangleGenerator {
   segments: Segment[] = [];
@@ -26,18 +20,17 @@ export class TriangleGenerator {
   private opts!: Required<GeneratorOptions>;
   private frontier: TreeNode[] = [];
   private head = 0;
-  private imageArea = 0;
   private nodeCount = 0;
 
   reset(img: ImageLike, opts: GeneratorOptions): void {
     this.img = img;
-    this.opts = { maxSamples: 10, maxNodes: 1_000_000, minArea: 1, ...opts };
-    this.imageArea = img.width * img.height;
+    this.opts = { maxNodes: 1_000_000, minArea: 1, ...opts };
     const root = createImageRectangle(img.width, img.height);
+    root.inheritedCutoff = Infinity;
     this.frontier = [root];
     this.head = 0;
     this.nodeCount = 1;
-    this.segments = rectangleBorderSegments(root);
+    this.segments = rectangleBorderSegments(root); // cutoff Infinity
     this.done = false;
   }
 
@@ -51,27 +44,34 @@ export class TriangleGenerator {
       }
       const node = this.frontier[this.head++];
       processed++;
-      if (node.area < this.opts.minArea) continue;
 
-      const brightness = getAverageBrightnessInTriangle(
-        this.img,
-        node.points,
-        this.opts.maxSamples,
-      );
-      const metric = this.opts.subdivideOn === "bright" ? brightness : 255 - brightness;
-      // Threshold below which this node subdivides. Tagging each emitted segment
-      // with it lets the renderer filter by detail level without recomputing.
-      const cutoff = (metric * node.area) / this.imageArea;
-      if (cutoff < this.opts.threshold) continue;
+      if (node.points.length === 4) {
+        // Seed rectangle -> two triangles along the diagonal (always).
+        const { children, segments } = node.divideRectangle();
+        for (const c of children) c.inheritedCutoff = Infinity;
+        for (const s of segments) {
+          this.segments.push(s);
+          emitted.push(s);
+        }
+        this.frontier.push(...children);
+        this.nodeCount += children.length;
+        continue;
+      }
 
-      const { children, segments } = node.divide();
-      this.frontier.push(...children);
-      this.nodeCount += children.length;
+      const analysis = analyzeTriangle(this.img, node.points, this.opts.minArea);
+      if (!analysis) continue; // too small / no valid split
+      const effective = Math.min(node.inheritedCutoff, analysis.score);
+      if (effective < this.opts.threshold) continue; // edge too weak at this detail
+
+      const { children, segments } = node.splitTriangle(analysis.splitParam);
+      for (const c of children) c.inheritedCutoff = effective;
       for (const s of segments) {
-        s.cutoff = cutoff;
+        s.cutoff = effective;
         this.segments.push(s);
         emitted.push(s);
       }
+      this.frontier.push(...children);
+      this.nodeCount += children.length;
     }
     if (this.head >= this.frontier.length) this.done = true;
     return emitted;
