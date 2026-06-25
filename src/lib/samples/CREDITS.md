@@ -1,7 +1,12 @@
 # Sample image credits
 
 - `turing.ts` (Alan Turing) — public domain.
-- `sample2.jpg` — bundled with the original project.
-- `sample3.jpg`, `sample4.jpg`, `sample5.jpg` — Lorem Picsum (https://picsum.photos),
-  which serves photos under the Unsplash License (free to use, no attribution
-  required). Fetched from `https://picsum.photos/id/{64,177,1062}`.
+
+The following are from [Unsplash](https://unsplash.com) under the Unsplash License
+(free to use, no attribution required), downscaled to ~1500px for the demo:
+
+- `leaf.jpg` — Antonia Glaskova
+- `dog.jpg` — Fabian Gieske
+- `building.jpg` — Rowan Heuvel
+- `road.jpg` — Ryan Grewell
+- `swan.jpg` — The Blowup

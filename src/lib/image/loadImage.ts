@@ -1,19 +1,26 @@
 import type { ImageLike } from "../engine/brightness";
+import { IMAGE_MAX_EDGE } from "../constants";
 
 export type LoadedImage = { image: ImageLike; width: number; height: number };
 
 function imageToData(img: HTMLImageElement): LoadedImage {
+  // Cap the long edge so generation stays bounded and the bitmap export stays a
+  // sensible size, no matter how large the source (sample or user upload) is.
+  const scale = Math.min(1, IMAGE_MAX_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+  const width = Math.max(1, Math.round(img.naturalWidth * scale));
+  const height = Math.max(1, Math.round(img.naturalHeight * scale));
+
   const canvas = document.createElement("canvas");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not get 2D context");
-  ctx.drawImage(img, 0, 0);
-  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, width, height);
+  const data = ctx.getImageData(0, 0, width, height);
   return {
-    image: { data: data.data, width: canvas.width, height: canvas.height },
-    width: canvas.width,
-    height: canvas.height,
+    image: { data: data.data, width, height },
+    width,
+    height,
   };
 }
 

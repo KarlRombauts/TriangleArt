@@ -1,16 +1,18 @@
 import { TuringImage } from "./turing";
-import sample2Url from "./sample2.jpg?url";
-import sample3Url from "./sample3.jpg?url";
-import sample4Url from "./sample4.jpg?url";
-import sample5Url from "./sample5.jpg?url";
+import leaf from "./leaf.jpg?url";
+import dog from "./dog.jpg?url";
+import building from "./building.jpg?url";
+import road from "./road.jpg?url";
+import swan from "./swan.jpg?url";
 
 export type Sample = { name: string; src: string };
 
 export const DEFAULT_SAMPLE: Sample = { name: "Turing", src: TuringImage };
 export const SAMPLES: Sample[] = [
   DEFAULT_SAMPLE,
-  { name: "Photo", src: sample2Url },
-  { name: "Portrait", src: sample3Url },
-  { name: "Landscape", src: sample4Url },
-  { name: "Scene", src: sample5Url },
+  { name: "Leaf", src: leaf },
+  { name: "Dog", src: dog },
+  { name: "Building", src: building },
+  { name: "Road", src: road },
+  { name: "Swan", src: swan },
 ];
