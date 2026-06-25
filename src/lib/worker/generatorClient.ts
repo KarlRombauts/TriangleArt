@@ -92,14 +92,14 @@ export class GeneratorClient {
       });
     }
     const g = new TriangleGenerator();
-    g.reset(image, { threshold: opts.threshold });
+    g.reset(image, { threshold: opts.threshold, subdivideOn: opts.subdivideOn });
     while (!g.done) g.step(5000);
     return Promise.resolve(g.segments.map((s) => ({ ...s })));
   }
 
   private runFallback(image: ImageLike, opts: LoadOptions, onBatch: BatchCb): void {
     const g = new TriangleGenerator();
-    g.reset(image, { threshold: opts.threshold });
+    g.reset(image, { threshold: opts.threshold, subdivideOn: opts.subdivideOn });
     onBatch(g.segments.slice(), false); // border
     const pump = () => {
       const fresh = g.step(BUILD_BATCH);

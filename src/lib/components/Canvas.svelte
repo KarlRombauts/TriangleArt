@@ -4,6 +4,7 @@
   import { redrawAll, drawSegments, clearCanvas, type RenderStyle } from "$lib/render/canvasRenderer";
   import { loadImageFromSrc, loadImageFromFile } from "$lib/image/loadImage";
   import { settings } from "$lib/state.svelte";
+  import { derivePolarity } from "$lib/engine/polarity";
   import { DEFAULT_SAMPLE } from "$lib/samples";
   import { DETAIL_MIN, WEBCAM_MAX_EDGE, WEBCAM_THRESHOLD } from "$lib/constants";
   import { startCamera, captureFrame, imageToDataUrl } from "$lib/webcam";
@@ -78,7 +79,10 @@
         canvasEl.height = cap.height;
       }
       current = cap.image;
-      const segs = await client.frame(cap.image, { threshold: WEBCAM_THRESHOLD });
+      const segs = await client.frame(cap.image, {
+        threshold: WEBCAM_THRESHOLD,
+        subdivideOn: derivePolarity(settings.line, settings.background),
+      });
       if (webcamRunning && ctx) {
         allSegments = segs;
         redrawAll(ctx, segs, style(), -Infinity);
@@ -120,7 +124,8 @@
     if (!ctx || !current) return;
     allSegments = [];
     clearCanvas(ctx, style());
-    client.load(current, { threshold: DETAIL_MIN }, (segs) => {
+    const subdivideOn = derivePolarity(settings.line, settings.background);
+    client.load(current, { threshold: DETAIL_MIN, subdivideOn }, (segs) => {
       allSegments.push(...segs);
       if (ctx) drawSegments(ctx, segs, style(), settings.threshold);
     });
@@ -155,16 +160,22 @@
     };
   });
 
-  // Detail (threshold) filters the cutoff; colours/line weight are cosmetic.
-  // All of them are display-only now — a change just redraws, never rebuilds.
-  // (Only loading a new image rebuilds.)
+  // Threshold/line-weight/colour changes just redraw (filtered). But inverting
+  // the colours flips the subdivision polarity, which changes the mesh -> rebuild.
+  let lastPolarity = derivePolarity(settings.line, settings.background);
   $effect(() => {
+    const polarity = derivePolarity(settings.line, settings.background);
     void settings.threshold;
     void settings.lineWidth;
     void settings.background;
     void settings.line;
     if (!ctx || !current || isWebcam) return;
-    redraw();
+    if (polarity !== lastPolarity) {
+      lastPolarity = polarity;
+      build();
+    } else {
+      redraw();
+    }
   });
 
   function onDrop(e: DragEvent) {

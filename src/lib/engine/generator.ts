@@ -2,7 +2,13 @@ import type { Segment } from "./geometry";
 import { createImageRectangle, rectangleBorderSegments, TreeNode } from "./tree";
 import { analyzeTriangle, type ImageLike } from "./analysis";
 
-export type GeneratorOptions = { threshold: number; maxNodes?: number; minArea?: number };
+export type SubdivideOn = "bright" | "dark";
+export type GeneratorOptions = {
+  threshold: number;
+  subdivideOn?: SubdivideOn;
+  maxNodes?: number;
+  minArea?: number;
+};
 
 /**
  * Adaptive, edge-following triangle subdivision. The seed rectangle splits along
@@ -25,7 +31,7 @@ export class TriangleGenerator {
 
   reset(img: ImageLike, opts: GeneratorOptions): void {
     this.img = img;
-    this.opts = { maxNodes: 1_000_000, minArea: 1, ...opts };
+    this.opts = { maxNodes: 1_000_000, minArea: 1, subdivideOn: "bright", ...opts };
     this.imageArea = Math.max(1, img.width * img.height);
     const root = createImageRectangle(img.width, img.height);
     root.inheritedCutoff = Infinity;
@@ -62,9 +68,11 @@ export class TriangleGenerator {
 
       const analysis = analyzeTriangle(this.img, node.points, this.opts.minArea);
       if (!analysis) continue; // too small / can't sample
-      // Density follows average luminosity weighted by area (brighter + larger
-      // triangles subdivide more); the cut itself follows the light/dark boundary.
-      const cutoff = (analysis.mean * node.area) / this.imageArea;
+      // Density follows luminosity weighted by area. `subdivideOn` flips which
+      // tone densifies so the result stays representational when colours invert
+      // (line lighter than background -> "bright"; darker -> "dark").
+      const metric = this.opts.subdivideOn === "bright" ? analysis.mean : 255 - analysis.mean;
+      const cutoff = (metric * node.area) / this.imageArea;
       const effective = Math.min(node.inheritedCutoff, cutoff);
       if (effective < this.opts.threshold) continue;
 
