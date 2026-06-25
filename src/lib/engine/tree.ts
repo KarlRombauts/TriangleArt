@@ -35,7 +35,8 @@ export class TreeNode {
       new TreeNode(this, [p[3], p[0], p[2]]),
     ];
     // The two triangles share the rectangle's diagonal p0 -> p2.
-    const seg: Segment = { x1: p[0].x, y1: p[0].y, x2: p[2].x, y2: p[2].y };
+    // cutoff is a placeholder; the generator overrides it with the node's cutoff.
+    const seg: Segment = { x1: p[0].x, y1: p[0].y, x2: p[2].x, y2: p[2].y, cutoff: Infinity };
     return { children: this.children, segments: [seg] };
   }
 
@@ -50,7 +51,8 @@ export class TreeNode {
       new TreeNode(this, [bisector, p[0], p[2]]),
     ];
     // The new dividing line shared by both children is bisector -> p0.
-    const seg: Segment = { x1: bisector.x, y1: bisector.y, x2: p[0].x, y2: p[0].y };
+    // cutoff is a placeholder; the generator overrides it with the node's cutoff.
+    const seg: Segment = { x1: bisector.x, y1: bisector.y, x2: p[0].x, y2: p[0].y, cutoff: Infinity };
     return { children: this.children, segments: [seg] };
   }
 }
@@ -74,6 +76,6 @@ export function rectangleBorderSegments(node: TreeNode): Segment[] {
   const p = node.points;
   return p.map((pt, i) => {
     const n = p[(i + 1) % p.length];
-    return { x1: pt.x, y1: pt.y, x2: n.x, y2: n.y };
+    return { x1: pt.x, y1: pt.y, x2: n.x, y2: n.y, cutoff: Infinity };
   });
 }

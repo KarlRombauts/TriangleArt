@@ -79,3 +79,27 @@ test("respects maxNodes safety bound", () => {
   while (!g.done && guard++ < 100000) g.step(1000);
   expect(g.done).toBe(true);
 });
+
+test("segments carry cutoff; borders are Infinity", () => {
+  const g = new TriangleGenerator();
+  g.reset(gradient(64, 64), { threshold: 0.002, subdivideOn: "bright" });
+  expect(g.segments.slice(0, 4).every((s) => s.cutoff === Infinity)).toBe(true);
+  while (!g.done) g.step(500);
+  expect(g.segments.every((s) => Number.isFinite(s.cutoff) || s.cutoff === Infinity)).toBe(true);
+});
+
+test("filtering by cutoff equals a fresh build at that threshold", () => {
+  const img = gradient(80, 80);
+  const floor = 0.002;
+  const built = new TriangleGenerator();
+  built.reset(img, { threshold: floor, subdivideOn: "bright" });
+  while (!built.done) built.step(1000);
+
+  for (const T of [0.005, 0.01, 0.02, 0.04]) {
+    const filtered = built.segments.filter((s) => s.cutoff >= T).length;
+    const fresh = new TriangleGenerator();
+    fresh.reset(img, { threshold: T, subdivideOn: "bright" });
+    while (!fresh.done) fresh.step(1000);
+    expect(filtered).toBe(fresh.segments.length);
+  }
+});

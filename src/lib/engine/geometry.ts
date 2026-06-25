@@ -1,5 +1,5 @@
 export type Point = { x: number; y: number };
-export type Segment = { x1: number; y1: number; x2: number; y2: number };
+export type Segment = { x1: number; y1: number; x2: number; y2: number; cutoff: number };
 
 export const sub = (a: Point, b: Point): Point => ({ x: a.x - b.x, y: a.y - b.y });
 export const add = (a: Point, b: Point): Point => ({ x: a.x + b.x, y: a.y + b.y });

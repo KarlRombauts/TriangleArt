@@ -9,6 +9,7 @@ export type GeneratorOptions = {
   subdivideOn: SubdivideOn;
   maxSamples?: number;
   maxNodes?: number;
+  minArea?: number;
 };
 
 /**
@@ -30,7 +31,7 @@ export class TriangleGenerator {
 
   reset(img: ImageLike, opts: GeneratorOptions): void {
     this.img = img;
-    this.opts = { maxSamples: 10, maxNodes: 1_000_000, ...opts };
+    this.opts = { maxSamples: 10, maxNodes: 1_000_000, minArea: 1, ...opts };
     this.imageArea = img.width * img.height;
     const root = createImageRectangle(img.width, img.height);
     this.frontier = [root];
@@ -50,6 +51,7 @@ export class TriangleGenerator {
       }
       const node = this.frontier[this.head++];
       processed++;
+      if (node.area < this.opts.minArea) continue;
 
       const brightness = getAverageBrightnessInTriangle(
         this.img,
@@ -57,12 +59,16 @@ export class TriangleGenerator {
         this.opts.maxSamples,
       );
       const metric = this.opts.subdivideOn === "bright" ? brightness : 255 - brightness;
-      if (metric < (this.imageArea / node.area) * this.opts.threshold) continue;
+      // Threshold below which this node subdivides. Tagging each emitted segment
+      // with it lets the renderer filter by detail level without recomputing.
+      const cutoff = (metric * node.area) / this.imageArea;
+      if (cutoff < this.opts.threshold) continue;
 
       const { children, segments } = node.divide();
       this.frontier.push(...children);
       this.nodeCount += children.length;
       for (const s of segments) {
+        s.cutoff = cutoff;
         this.segments.push(s);
         emitted.push(s);
       }
