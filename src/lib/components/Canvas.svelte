@@ -7,6 +7,7 @@
   import { settings } from "$lib/state.svelte";
   import { DEFAULT_SAMPLE } from "$lib/samples";
   import { DETAIL_MIN } from "$lib/constants";
+  import CompareSlider from "./CompareSlider.svelte";
   import type { ImageLike } from "$lib/engine/brightness";
   import type { Segment } from "$lib/engine/geometry";
 
@@ -139,6 +140,7 @@
   ondrop={onDrop}
 >
   <canvas bind:this={canvasEl} class="max-w-full h-auto rounded-lg block"></canvas>
+  <CompareSlider src={originalSrc} active={settings.compare} />
   {#if dragging}
     <div
       class="absolute inset-0 grid place-items-center bg-background/70 text-sm font-medium rounded-lg pointer-events-none"

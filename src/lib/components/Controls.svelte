@@ -54,6 +54,11 @@
     </label>
   </div>
 
+  <label class="flex items-center gap-2 text-sm">
+    <input type="checkbox" bind:checked={settings.compare} />
+    Compare with original
+  </label>
+
   <div class="space-y-2">
     <Label>Presets</Label>
     <div class="flex flex-wrap gap-2">
