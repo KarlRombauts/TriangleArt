@@ -14,8 +14,12 @@ export class TreeNode {
 
   get area(): number {
     const p = this.points;
-    const a = mag(sub(p[1], p[0])) * mag(sub(p[2], p[0]));
-    return p.length === 3 ? a / 2 : a;
+    if (p.length === 3) {
+      // Right-angle triangle: legs run from p0 to p1 and p0 to p2.
+      return (mag(sub(p[1], p[0])) * mag(sub(p[2], p[0]))) / 2;
+    }
+    // Rectangle: adjacent edges from p0 are p0->p1 and p0->p3 (p2 is the diagonal corner).
+    return mag(sub(p[1], p[0])) * mag(sub(p[3], p[0]));
   }
 
   divide(): { children: TreeNode[]; segments: Segment[] } {
