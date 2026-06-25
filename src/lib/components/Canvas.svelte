@@ -3,13 +3,12 @@
   import { GeneratorClient } from "$lib/worker/generatorClient";
   import { redrawAll, drawSegments, clearCanvas, type RenderStyle } from "$lib/render/canvasRenderer";
   import { loadImageFromSrc, loadImageFromFile } from "$lib/image/loadImage";
-  import { derivePolarity } from "$lib/engine/polarity";
   import { settings } from "$lib/state.svelte";
   import { DEFAULT_SAMPLE } from "$lib/samples";
-  import { DETAIL_MIN, WEBCAM_MAX_EDGE, WEBCAM_THRESHOLD, WEBCAM_MAX_SAMPLES } from "$lib/constants";
+  import { DETAIL_MIN, WEBCAM_MAX_EDGE, WEBCAM_THRESHOLD } from "$lib/constants";
   import { startCamera, captureFrame, imageToDataUrl } from "$lib/webcam";
   import CompareSlider from "./CompareSlider.svelte";
-  import type { ImageLike } from "$lib/engine/brightness";
+  import type { ImageLike } from "$lib/engine/analysis";
   import type { Segment } from "$lib/engine/geometry";
 
   let canvasEl = $state<HTMLCanvasElement>();
@@ -79,11 +78,7 @@
         canvasEl.height = cap.height;
       }
       current = cap.image;
-      const segs = await client.frame(cap.image, {
-        subdivideOn: derivePolarity(settings.line, settings.background),
-        threshold: WEBCAM_THRESHOLD,
-        maxSamples: WEBCAM_MAX_SAMPLES,
-      });
+      const segs = await client.frame(cap.image, { threshold: WEBCAM_THRESHOLD });
       if (webcamRunning && ctx) {
         allSegments = segs;
         redrawAll(ctx, segs, style(), -Infinity);
@@ -100,11 +95,6 @@
     isWebcam = false;
     if (current) {
       originalSrc = imageToDataUrl(current);
-      lastPolarity = derivePolarity(settings.line, settings.background);
-      lastThreshold = settings.threshold;
-      lastLineWidth = settings.lineWidth;
-      lastBackground = settings.background;
-      lastLine = settings.line;
       build(); // rebuild at full detail so the Detail slider spans its full range
     }
   }
@@ -130,14 +120,10 @@
     if (!ctx || !current) return;
     allSegments = [];
     clearCanvas(ctx, style());
-    client.load(
-      current,
-      { subdivideOn: derivePolarity(settings.line, settings.background), threshold: DETAIL_MIN, maxSamples: 10 },
-      (segs) => {
-        allSegments.push(...segs);
-        if (ctx) drawSegments(ctx, segs, style(), settings.threshold);
-      },
-    );
+    client.load(current, { threshold: DETAIL_MIN }, (segs) => {
+      allSegments.push(...segs);
+      if (ctx) drawSegments(ctx, segs, style(), settings.threshold);
+    });
   }
 
   export async function loadSrc(src: string) {
@@ -169,39 +155,16 @@
     };
   });
 
-  // Reactive rules: polarity flip rebuilds; threshold/colour/width just redraw
-  // (filtered) — no recompute, no flicker.
-  let lastThreshold = settings.threshold;
-  let lastPolarity = derivePolarity(settings.line, settings.background);
-  let lastLineWidth = settings.lineWidth;
-  let lastBackground = settings.background;
-  let lastLine = settings.line;
-
+  // Detail (threshold) filters the cutoff; colours/line weight are cosmetic.
+  // All of them are display-only now — a change just redraws, never rebuilds.
+  // (Only loading a new image rebuilds.)
   $effect(() => {
-    const t = settings.threshold;
-    const polarity = derivePolarity(settings.line, settings.background);
-    const lw = settings.lineWidth;
-    const bg = settings.background;
-    const ln = settings.line;
-
+    void settings.threshold;
+    void settings.lineWidth;
+    void settings.background;
+    void settings.line;
     if (!ctx || !current || isWebcam) return;
-
-    if (polarity !== lastPolarity) {
-      lastPolarity = polarity;
-      lastThreshold = t;
-      lastLineWidth = lw;
-      lastBackground = bg;
-      lastLine = ln;
-      build();
-    } else if (t !== lastThreshold) {
-      lastThreshold = t;
-      redraw();
-    } else if (lw !== lastLineWidth || bg !== lastBackground || ln !== lastLine) {
-      lastLineWidth = lw;
-      lastBackground = bg;
-      lastLine = ln;
-      redraw();
-    }
+    redraw();
   });
 
   function onDrop(e: DragEvent) {

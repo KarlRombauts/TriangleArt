@@ -10,7 +10,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     width: msg.width,
     height: msg.height,
   };
-  gen.reset(img, { ...msg.opts, maxSamples: msg.opts.maxSamples ?? 10 });
+  gen.reset(img, { threshold: msg.opts.threshold });
 
   if (msg.type === "frame") {
     while (!gen.done) gen.step(5000);

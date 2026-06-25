@@ -1,4 +1,4 @@
-import type { ImageLike } from "./engine/brightness";
+import type { ImageLike } from "./engine/analysis";
 
 export async function startCamera(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });

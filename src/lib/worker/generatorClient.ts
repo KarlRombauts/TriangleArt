@@ -1,4 +1,4 @@
-import type { ImageLike } from "../engine/brightness";
+import type { ImageLike } from "../engine/analysis";
 import type { Segment } from "../engine/geometry";
 import { TriangleGenerator } from "../engine/generator";
 import { BUILD_BATCH } from "../constants";
@@ -92,14 +92,14 @@ export class GeneratorClient {
       });
     }
     const g = new TriangleGenerator();
-    g.reset(image, { ...opts, maxSamples: opts.maxSamples ?? 10 });
+    g.reset(image, { threshold: opts.threshold });
     while (!g.done) g.step(5000);
     return Promise.resolve(g.segments.map((s) => ({ ...s })));
   }
 
   private runFallback(image: ImageLike, opts: LoadOptions, onBatch: BatchCb): void {
     const g = new TriangleGenerator();
-    g.reset(image, { ...opts, maxSamples: opts.maxSamples ?? 10 });
+    g.reset(image, { threshold: opts.threshold });
     onBatch(g.segments.slice(), false); // border
     const pump = () => {
       const fresh = g.step(BUILD_BATCH);

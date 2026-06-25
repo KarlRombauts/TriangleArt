@@ -1,7 +1,6 @@
 import type { Segment } from "../engine/geometry";
-import type { SubdivideOn } from "../engine/generator";
 
-export type LoadOptions = { subdivideOn: SubdivideOn; threshold: number; maxSamples?: number };
+export type LoadOptions = { threshold: number };
 
 export type WorkerRequest =
   | {

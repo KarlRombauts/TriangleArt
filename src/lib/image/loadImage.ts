@@ -1,4 +1,4 @@
-import type { ImageLike } from "../engine/brightness";
+import type { ImageLike } from "../engine/analysis";
 import { IMAGE_MAX_EDGE } from "../constants";
 
 export type LoadedImage = { image: ImageLike; width: number; height: number };
