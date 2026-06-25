@@ -1,6 +1,8 @@
 <script lang="ts">
   import { settings } from "$lib/state.svelte";
   import { SAMPLES } from "$lib/samples";
+  import { PRESETS } from "$lib/presets";
+  import { DETAIL_MIN, DETAIL_MAX } from "$lib/constants";
   import { segmentsToSvg, downloadSvg } from "$lib/render/exportSvg";
   import { downloadCanvasPng } from "$lib/render/exportPng";
   import { Slider } from "$lib/components/ui/slider";
@@ -33,12 +35,7 @@
 <div class="space-y-6">
   <div class="space-y-2">
     <Label>Detail <span class="text-muted-foreground">({settings.threshold.toFixed(3)})</span></Label>
-    <Slider type="single" min={0.001} max={0.05} step={0.001} bind:value={settings.threshold} />
-  </div>
-
-  <div class="space-y-2">
-    <Label>Build speed <span class="text-muted-foreground">({settings.buildSpeed}/frame)</span></Label>
-    <Slider type="single" min={50} max={3000} step={50} bind:value={settings.buildSpeed} />
+    <Slider type="single" min={DETAIL_MIN} max={DETAIL_MAX} step={0.001} bind:value={settings.threshold} />
   </div>
 
   <div class="space-y-2">
@@ -55,6 +52,24 @@
       <input type="color" class="h-7 w-9 rounded border border-border bg-transparent" bind:value={settings.line} />
       Line
     </label>
+  </div>
+
+  <div class="space-y-2">
+    <Label>Presets</Label>
+    <div class="flex flex-wrap gap-2">
+      {#each PRESETS as p (p.name)}
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => {
+            settings.threshold = p.threshold;
+            settings.lineWidth = p.lineWidth;
+            settings.background = p.background;
+            settings.line = p.line;
+          }}>{p.name}</Button
+        >
+      {/each}
+    </div>
   </div>
 
   <div class="space-y-2">
