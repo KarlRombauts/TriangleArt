@@ -1,11 +1,12 @@
 import type { Segment } from "./geometry";
 import { createImageRectangle, rectangleBorderSegments, TreeNode } from "./tree";
-import { analyzeTriangle, type ImageLike } from "./analysis";
+import { analyzeTriangle, applyContrast, type ImageLike } from "./analysis";
 
 export type SubdivideOn = "bright" | "dark";
 export type GeneratorOptions = {
   threshold: number;
   subdivideOn?: SubdivideOn;
+  contrast?: number;
   maxNodes?: number;
   minArea?: number;
 };
@@ -30,8 +31,8 @@ export class TriangleGenerator {
   private imageArea = 1;
 
   reset(img: ImageLike, opts: GeneratorOptions): void {
-    this.img = img;
-    this.opts = { maxNodes: 1_000_000, minArea: 1, subdivideOn: "bright", ...opts };
+    this.opts = { maxNodes: 1_000_000, minArea: 1, subdivideOn: "bright", contrast: 1, ...opts };
+    this.img = applyContrast(img, this.opts.contrast); // contrast pre-pass before sampling
     this.imageArea = Math.max(1, img.width * img.height);
     const root = createImageRectangle(img.width, img.height);
     root.inheritedCutoff = Infinity;

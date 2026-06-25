@@ -10,12 +10,30 @@ import {
 } from "./geometry";
 
 export type ImageLike = { data: Uint8ClampedArray | number[]; width: number; height: number };
+
+/**
+ * Returns a contrast-adjusted copy of the image (around mid-grey 128).
+ * `contrast` of 1 is unchanged (and returns the original), >1 increases contrast,
+ * <1 flattens it. Used as a pre-pass before sampling.
+ */
+export function applyContrast(img: ImageLike, contrast: number): ImageLike {
+  if (contrast === 1) return img;
+  const src = img.data;
+  const out = new Uint8ClampedArray(src.length); // clamps to 0..255 on assignment
+  for (let i = 0; i < src.length; i += 4) {
+    out[i] = (src[i] - 128) * contrast + 128;
+    out[i + 1] = (src[i + 1] - 128) * contrast + 128;
+    out[i + 2] = (src[i + 2] - 128) * contrast + 128;
+    out[i + 3] = src[i + 3];
+  }
+  return { data: out, width: img.width, height: img.height };
+}
 /** `mean` drives the subdivide decision (× area); `splitParam` is where to cut. */
 export type TriangleAnalysis = { mean: number; splitParam: number };
 
 const BINS = 24;
 const MAX_STRIDE = 3;
-const MIN_ANGLE_DEG = 10;
+const MIN_ANGLE_DEG = 20;
 
 function sign(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
   return (px - bx) * (ay - by) - (ax - bx) * (py - by);

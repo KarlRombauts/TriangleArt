@@ -121,6 +121,11 @@
     </div>
 
     <div class="space-y-1.5">
+      <span class="text-sm">Contrast</span>
+      <Slider type="single" min={0.5} max={3} step={0.1} bind:value={settings.contrast} />
+    </div>
+
+    <div class="space-y-1.5">
       <span class="text-sm">Line weight</span>
       <Slider type="single" min={0.25} max={5} step={0.25} bind:value={settings.lineWidth} />
     </div>

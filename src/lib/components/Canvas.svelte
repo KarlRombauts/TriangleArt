@@ -82,6 +82,7 @@
       const segs = await client.frame(cap.image, {
         threshold: WEBCAM_THRESHOLD,
         subdivideOn: derivePolarity(settings.line, settings.background),
+        contrast: settings.contrast,
       });
       if (webcamRunning && ctx) {
         allSegments = segs;
@@ -125,7 +126,7 @@
     allSegments = [];
     clearCanvas(ctx, style());
     const subdivideOn = derivePolarity(settings.line, settings.background);
-    client.load(current, { threshold: DETAIL_MIN, subdivideOn }, (segs) => {
+    client.load(current, { threshold: DETAIL_MIN, subdivideOn, contrast: settings.contrast }, (segs) => {
       allSegments.push(...segs);
       if (ctx) drawSegments(ctx, segs, style(), settings.threshold);
     });
@@ -163,15 +164,20 @@
   // Threshold/line-weight/colour changes just redraw (filtered). But inverting
   // the colours flips the subdivision polarity, which changes the mesh -> rebuild.
   let lastPolarity = derivePolarity(settings.line, settings.background);
+  let lastContrast = settings.contrast;
   $effect(() => {
     const polarity = derivePolarity(settings.line, settings.background);
+    const contrast = settings.contrast;
     void settings.threshold;
     void settings.lineWidth;
     void settings.background;
     void settings.line;
     if (!ctx || !current || isWebcam) return;
-    if (polarity !== lastPolarity) {
+    // Contrast and polarity change the sampled mesh -> rebuild; everything else
+    // is display-only -> redraw (filtered).
+    if (polarity !== lastPolarity || contrast !== lastContrast) {
       lastPolarity = polarity;
+      lastContrast = contrast;
       build();
     } else {
       redraw();

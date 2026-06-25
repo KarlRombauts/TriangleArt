@@ -1,5 +1,22 @@
 import { test, expect } from "vitest";
-import { analyzeTriangle, type ImageLike } from "./analysis";
+import { analyzeTriangle, applyContrast, type ImageLike } from "./analysis";
+
+test("applyContrast spreads values around 128", () => {
+  const img: ImageLike = {
+    data: new Uint8ClampedArray([100, 100, 100, 255, 160, 160, 160, 255]),
+    width: 2,
+    height: 1,
+  };
+  const out = applyContrast(img, 2);
+  expect(out.data[0]).toBe(72); // (100-128)*2+128
+  expect(out.data[4]).toBe(192); // (160-128)*2+128
+  expect(out.data[3]).toBe(255); // alpha untouched
+});
+
+test("applyContrast of 1 returns the same image", () => {
+  const img: ImageLike = { data: new Uint8ClampedArray(4), width: 1, height: 1 };
+  expect(applyContrast(img, 1)).toBe(img);
+});
 
 function halfSplit(w: number, h: number, edgeX: number): ImageLike {
   const data = new Uint8ClampedArray(w * h * 4);

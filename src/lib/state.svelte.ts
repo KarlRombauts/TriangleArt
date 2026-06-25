@@ -1,5 +1,6 @@
 export type Settings = {
   threshold: number;
+  contrast: number;
   lineWidth: number;
   background: string;
   line: string;
@@ -8,6 +9,7 @@ export type Settings = {
 
 export const settings: Settings = $state({
   threshold: 0.01,
+  contrast: 1,
   lineWidth: 1.5,
   background: "#000000",
   line: "#ffffff",
