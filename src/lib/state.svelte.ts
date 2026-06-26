@@ -1,0 +1,22 @@
+import type { Sample } from "./samples";
+
+/** Images the user has uploaded/dropped this session, kept so they can switch back. */
+export const uploads: Sample[] = $state([]);
+
+export type Settings = {
+  threshold: number;
+  contrast: number;
+  lineWidth: number;
+  background: string;
+  line: string;
+  compare: boolean;
+};
+
+export const settings: Settings = $state({
+  threshold: 0.01,
+  contrast: 1,
+  lineWidth: 1.5,
+  background: "#000000",
+  line: "#ffffff",
+  compare: false,
+});
