@@ -4,7 +4,7 @@ A small hobby project I made to turn a photo into generative art made of triangl
 
 **[Live demo](https://karlrombauts.github.io/TriangleArt/)**
 
-<!-- TODO: drop in a screenshot or two here -->
+![Alan Turing rendered as triangle art](turing-triangles.png)
 
 ## Where this came from
 
