@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { settings } from "$lib/state.svelte";
+  import { settings, uploads } from "$lib/state.svelte";
   import { SAMPLES } from "$lib/samples";
   import { PRESETS } from "$lib/presets";
   import { DETAIL_MIN, DETAIL_MAX } from "$lib/constants";
@@ -89,6 +89,24 @@
           </span>
         </button>
       {/each}
+      {#each uploads as u (u.src)}
+        <button
+          type="button"
+          onclick={() => canvasApi.loadSrc(u.src)}
+          title={u.name}
+          class="group relative aspect-square overflow-hidden rounded-md border transition-all {canvasApi.getOriginalSrc() ===
+          u.src
+            ? 'border-primary ring-2 ring-primary/50'
+            : 'border-border hover:border-primary/60'}"
+        >
+          <img src={u.src} alt={u.name} class="h-full w-full object-cover" />
+          <span
+            class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-3 pb-1 text-left text-[11px] font-medium text-white"
+          >
+            {u.name}
+          </span>
+        </button>
+      {/each}
     </div>
     <label
       class="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground"
@@ -100,6 +118,38 @@
       <input type="file" accept="image/*" onchange={onFile} class="hidden" />
     </label>
     <p class="text-center text-xs text-muted-foreground/70">…or drag an image onto the canvas</p>
+  </section>
+
+  <!-- CAMERA -->
+  <section class="space-y-2">
+    {#if !canvasApi.getIsWebcam()}
+      <Button variant="outline" class="w-full justify-center gap-2" onclick={() => canvasApi.startWebcam()}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+          <circle cx="12" cy="13" r="3" />
+        </svg>
+        Use webcam
+      </Button>
+      {#if canvasApi.getWebcamError()}
+        <p class="text-center text-xs text-destructive">{canvasApi.getWebcamError()}</p>
+      {/if}
+    {:else}
+      <div class="flex gap-2">
+        <Button variant="secondary" class="flex-1 gap-2" onclick={() => canvasApi.freezeWebcam()}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+            <circle cx="12" cy="13" r="3" />
+          </svg>
+          Capture
+        </Button>
+        <Button variant="destructive" class="flex-1 gap-2" onclick={() => canvasApi.stopWebcam()}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="6" y="6" width="12" height="12" rx="1" />
+          </svg>
+          Stop
+        </Button>
+      </div>
+    {/if}
   </section>
 
   <!-- LOOKS -->
@@ -192,28 +242,6 @@
         Compare with original
         <span class="text-xs text-muted-foreground">{settings.compare ? "On" : "Off"}</span>
       </button>
-    {/if}
-  </section>
-
-  <!-- CAMERA -->
-  <section class="space-y-2.5">
-    <h2 class="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Camera</h2>
-    <div class="flex flex-wrap gap-2">
-      {#if !canvasApi.getIsWebcam()}
-        <Button variant="outline" size="sm" onclick={() => canvasApi.startWebcam()}>
-          Start webcam
-        </Button>
-      {:else}
-        <Button variant="outline" size="sm" onclick={() => canvasApi.freezeWebcam()}>
-          Freeze frame
-        </Button>
-        <Button variant="destructive" size="sm" onclick={() => canvasApi.stopWebcam()}>Stop</Button>
-      {/if}
-    </div>
-    {#if canvasApi.getWebcamError()}
-      <p class="text-xs text-destructive">{canvasApi.getWebcamError()}</p>
-    {:else}
-      <p class="text-xs text-muted-foreground/70">Triangulates your camera in real time.</p>
     {/if}
   </section>
 

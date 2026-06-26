@@ -7,8 +7,8 @@
         clearCanvas,
         type RenderStyle,
     } from "$lib/render/canvasRenderer";
-    import { loadImageFromSrc, loadImageFromFile } from "$lib/image/loadImage";
-    import { settings } from "$lib/state.svelte";
+    import { loadImageFromSrc } from "$lib/image/loadImage";
+    import { settings, uploads } from "$lib/state.svelte";
     import { derivePolarity } from "$lib/engine/polarity";
     import { DEFAULT_SAMPLE } from "$lib/samples";
     import {
@@ -155,9 +155,12 @@
         applyImage(image, width, height);
     }
     export async function loadFile(file: File) {
-        const { image, width, height } = await loadImageFromFile(file);
-        originalSrc = URL.createObjectURL(file);
-        applyImage(image, width, height);
+        // Keep the upload in the session gallery (as an object URL) so the user
+        // can switch back to it, then load it like any other source.
+        const src = URL.createObjectURL(file);
+        const name = file.name.replace(/\.[^.]+$/, "").slice(0, 14) || "Upload";
+        uploads.push({ name, src });
+        await loadSrc(src);
     }
     function applyImage(image: ImageLike, width: number, height: number) {
         current = image;
