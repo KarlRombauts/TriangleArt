@@ -10,7 +10,7 @@
   let isMobile = $state(false);
 
   onMount(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
+    const mq = window.matchMedia("(max-width: 1023px)");
     isMobile = mq.matches;
     const onChange = (e: MediaQueryListEvent) => (isMobile = e.matches);
     mq.addEventListener("change", onChange);

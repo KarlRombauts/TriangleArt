@@ -26,7 +26,7 @@
 {#if active}
   <div
     bind:this={wrap}
-    class="absolute inset-0 overflow-hidden rounded-lg select-none"
+    class="absolute inset-0 touch-none overflow-hidden rounded-lg select-none"
     role="group"
     aria-label="Before and after comparison"
     onpointermove={onPointerMove}
@@ -43,7 +43,7 @@
     <div class="absolute inset-y-0 w-0.5 bg-primary" style={`left:${pos}%`}>
       <button
         type="button"
-        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-7 rounded-full bg-primary text-primary-foreground text-xs grid place-items-center cursor-ew-resize shadow"
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 size-9 touch-none rounded-full bg-primary text-primary-foreground text-sm grid place-items-center cursor-ew-resize shadow sm:size-7 sm:text-xs"
         aria-label="Drag to compare original and triangulated"
         onpointerdown={onPointerDown}
         onkeydown={(e) => {
