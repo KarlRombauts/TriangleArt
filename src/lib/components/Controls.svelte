@@ -45,22 +45,54 @@
     settings.lineWidth === p.lineWidth &&
     settings.background.toLowerCase() === p.background.toLowerCase() &&
     settings.line.toLowerCase() === p.line.toLowerCase();
+
+  // A small triangulated motif (in a 0..48 box) used to preview each preset.
+  const STYLE_MOTIF: [number, number, number, number][] = [
+    [1, 1, 47, 1],
+    [47, 1, 47, 47],
+    [47, 47, 1, 47],
+    [1, 47, 1, 1],
+    [1, 1, 47, 47],
+    [47, 1, 24, 24],
+    [1, 47, 24, 24],
+    [47, 1, 36, 12],
+    [36, 12, 24, 24],
+    [36, 12, 47, 24],
+    [24, 24, 47, 24],
+    [1, 47, 12, 36],
+    [12, 36, 24, 24],
+    [12, 36, 24, 47],
+    [24, 24, 24, 47],
+  ];
 </script>
 
 <div class="space-y-7">
   <!-- LOOKS -->
   <section class="space-y-2.5">
     <h2 class="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Looks</h2>
-    <div class="flex flex-wrap gap-2">
+    <div class="grid grid-cols-3 gap-2">
       {#each PRESETS as p (p.name)}
         <button
           type="button"
           onclick={() => applyPreset(p)}
-          class="rounded-full border px-3 py-1 text-sm transition-colors {isActivePreset(p)
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border hover:border-primary/60 hover:bg-accent'}"
+          title={p.name}
+          class="group relative aspect-square overflow-hidden rounded-md border transition-all {isActivePreset(p)
+            ? 'border-primary ring-2 ring-primary/50'
+            : 'border-border hover:border-primary/60'}"
         >
-          {p.name}
+          <svg viewBox="0 0 48 48" class="block h-full w-full" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="48" height="48" fill={p.background} />
+            <g stroke={p.line} stroke-width={Math.max(0.4, p.lineWidth * 0.5)} stroke-linecap="round">
+              {#each STYLE_MOTIF as [x1, y1, x2, y2]}
+                <line {x1} {y1} {x2} {y2} />
+              {/each}
+            </g>
+          </svg>
+          <span
+            class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-1.5 pt-3 pb-1 text-left text-[11px] font-medium text-white"
+          >
+            {p.name}
+          </span>
         </button>
       {/each}
     </div>

@@ -1,220 +1,237 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { GeneratorClient } from "$lib/worker/generatorClient";
-  import { redrawAll, drawSegments, clearCanvas, type RenderStyle } from "$lib/render/canvasRenderer";
-  import { loadImageFromSrc, loadImageFromFile } from "$lib/image/loadImage";
-  import { settings } from "$lib/state.svelte";
-  import { derivePolarity } from "$lib/engine/polarity";
-  import { DEFAULT_SAMPLE } from "$lib/samples";
-  import { DETAIL_MIN, WEBCAM_MAX_EDGE, WEBCAM_THRESHOLD } from "$lib/constants";
-  import { startCamera, captureFrame, imageToDataUrl } from "$lib/webcam";
-  import CompareSlider from "./CompareSlider.svelte";
-  import type { ImageLike } from "$lib/engine/analysis";
-  import type { Segment } from "$lib/engine/geometry";
+    import { onMount } from "svelte";
+    import { GeneratorClient } from "$lib/worker/generatorClient";
+    import {
+        redrawAll,
+        drawSegments,
+        clearCanvas,
+        type RenderStyle,
+    } from "$lib/render/canvasRenderer";
+    import { loadImageFromSrc, loadImageFromFile } from "$lib/image/loadImage";
+    import { settings } from "$lib/state.svelte";
+    import { derivePolarity } from "$lib/engine/polarity";
+    import { DEFAULT_SAMPLE } from "$lib/samples";
+    import {
+        DETAIL_MIN,
+        WEBCAM_MAX_EDGE,
+        WEBCAM_THRESHOLD,
+    } from "$lib/constants";
+    import { startCamera, captureFrame, imageToDataUrl } from "$lib/webcam";
+    import CompareSlider from "./CompareSlider.svelte";
+    import type { ImageLike } from "$lib/engine/analysis";
+    import type { Segment } from "$lib/engine/geometry";
 
-  let canvasEl = $state<HTMLCanvasElement>();
-  let dragging = $state(false);
-  let ctx: CanvasRenderingContext2D | null = null;
-  const client = new GeneratorClient();
-  let current: ImageLike | null = null;
-  let allSegments: Segment[] = [];
-  let originalSrc = $state("");
+    let canvasEl = $state<HTMLCanvasElement>();
+    let dragging = $state(false);
+    let ctx: CanvasRenderingContext2D | null = null;
+    const client = new GeneratorClient();
+    let current: ImageLike | null = null;
+    let allSegments: Segment[] = [];
+    let originalSrc = $state("");
 
-  let isWebcam = $state(false);
-  let webcamError = $state("");
-  let stream: MediaStream | null = null;
-  let video: HTMLVideoElement | null = null;
-  let webcamRunning = false;
+    let isWebcam = $state(false);
+    let webcamError = $state("");
+    let stream: MediaStream | null = null;
+    let video: HTMLVideoElement | null = null;
+    let webcamRunning = false;
 
-  const style = (): RenderStyle => ({
-    background: settings.background,
-    line: settings.line,
-    lineWidth: settings.lineWidth,
-  });
-
-  export function getCanvas() {
-    return canvasEl!;
-  }
-  export function getSegments(): Segment[] {
-    return allSegments.filter((s) => s.cutoff >= settings.threshold);
-  }
-  export function getSize() {
-    return { width: current?.width ?? 0, height: current?.height ?? 0 };
-  }
-  export function getOriginalSrc() {
-    return originalSrc;
-  }
-  export function getIsWebcam() {
-    return isWebcam;
-  }
-  export function getWebcamError() {
-    return webcamError;
-  }
-
-  export async function startWebcam() {
-    webcamError = "";
-    try {
-      stream = await startCamera();
-    } catch {
-      webcamError = "Camera access was denied or unavailable.";
-      return;
-    }
-    video = document.createElement("video");
-    video.srcObject = stream;
-    video.muted = true;
-    video.playsInline = true;
-    await video.play();
-    settings.compare = false;
-    isWebcam = true;
-    webcamRunning = true;
-    void pumpWebcam();
-  }
-
-  async function pumpWebcam() {
-    if (!webcamRunning || !video || !ctx || !canvasEl) return;
-    const cap = captureFrame(video, WEBCAM_MAX_EDGE);
-    if (cap) {
-      if (canvasEl.width !== cap.width || canvasEl.height !== cap.height) {
-        canvasEl.width = cap.width;
-        canvasEl.height = cap.height;
-      }
-      current = cap.image;
-      const segs = await client.frame(cap.image, {
-        threshold: WEBCAM_THRESHOLD,
-        subdivideOn: derivePolarity(settings.line, settings.background),
-        contrast: settings.contrast,
-      });
-      if (webcamRunning && ctx) {
-        allSegments = segs;
-        redrawAll(ctx, segs, style(), -Infinity);
-      }
-    }
-    if (webcamRunning) requestAnimationFrame(() => void pumpWebcam());
-  }
-
-  export function freezeWebcam() {
-    webcamRunning = false;
-    stopStream();
-    // Turn the frozen frame into a normal editable still: this re-enables the
-    // style/detail controls and restores "Start webcam" so it can be resumed.
-    isWebcam = false;
-    if (current) {
-      originalSrc = imageToDataUrl(current);
-      build(); // rebuild at full detail so the Detail slider spans its full range
-    }
-  }
-  export function stopWebcam() {
-    webcamRunning = false;
-    isWebcam = false;
-    stopStream();
-    void loadSrc(DEFAULT_SAMPLE.src);
-  }
-  function stopStream() {
-    stream?.getTracks().forEach((t) => t.stop());
-    stream = null;
-    video = null;
-  }
-
-  function redraw() {
-    if (ctx && current) redrawAll(ctx, allSegments, style(), settings.threshold);
-  }
-
-  // Build to the finest detail (DETAIL_MIN) once; the slider then filters by
-  // cutoff without recomputing. The worker streams batches we draw as they land.
-  function build() {
-    if (!ctx || !current) return;
-    allSegments = [];
-    clearCanvas(ctx, style());
-    const subdivideOn = derivePolarity(settings.line, settings.background);
-    client.load(current, { threshold: DETAIL_MIN, subdivideOn, contrast: settings.contrast }, (segs) => {
-      allSegments.push(...segs);
-      if (ctx) drawSegments(ctx, segs, style(), settings.threshold);
+    const style = (): RenderStyle => ({
+        background: settings.background,
+        line: settings.line,
+        lineWidth: settings.lineWidth,
     });
-  }
 
-  export async function loadSrc(src: string) {
-    const { image, width, height } = await loadImageFromSrc(src);
-    originalSrc = src;
-    applyImage(image, width, height);
-  }
-  export async function loadFile(file: File) {
-    const { image, width, height } = await loadImageFromFile(file);
-    originalSrc = URL.createObjectURL(file);
-    applyImage(image, width, height);
-  }
-  function applyImage(image: ImageLike, width: number, height: number) {
-    current = image;
-    if (canvasEl) {
-      canvasEl.width = width;
-      canvasEl.height = height;
+    export function getCanvas() {
+        return canvasEl!;
     }
-    build();
-  }
-
-  onMount(() => {
-    ctx = canvasEl!.getContext("2d");
-    void loadSrc(DEFAULT_SAMPLE.src);
-    return () => {
-      webcamRunning = false;
-      stopStream();
-      client.dispose();
-    };
-  });
-
-  // Threshold/line-weight/colour changes just redraw (filtered). But inverting
-  // the colours flips the subdivision polarity, which changes the mesh -> rebuild.
-  let lastPolarity = derivePolarity(settings.line, settings.background);
-  let lastContrast = settings.contrast;
-  $effect(() => {
-    const polarity = derivePolarity(settings.line, settings.background);
-    const contrast = settings.contrast;
-    void settings.threshold;
-    void settings.lineWidth;
-    void settings.background;
-    void settings.line;
-    if (!ctx || !current || isWebcam) return;
-    // Contrast and polarity change the sampled mesh -> rebuild; everything else
-    // is display-only -> redraw (filtered).
-    if (polarity !== lastPolarity || contrast !== lastContrast) {
-      lastPolarity = polarity;
-      lastContrast = contrast;
-      build();
-    } else {
-      redraw();
+    export function getSegments(): Segment[] {
+        return allSegments.filter((s) => s.cutoff >= settings.threshold);
     }
-  });
+    export function getSize() {
+        return { width: current?.width ?? 0, height: current?.height ?? 0 };
+    }
+    export function getOriginalSrc() {
+        return originalSrc;
+    }
+    export function getIsWebcam() {
+        return isWebcam;
+    }
+    export function getWebcamError() {
+        return webcamError;
+    }
 
-  function onDrop(e: DragEvent) {
-    e.preventDefault();
-    dragging = false;
-    const file = e.dataTransfer?.files?.[0];
-    if (file) void loadFile(file);
-  }
+    export async function startWebcam() {
+        webcamError = "";
+        try {
+            stream = await startCamera();
+        } catch {
+            webcamError = "Camera access was denied or unavailable.";
+            return;
+        }
+        video = document.createElement("video");
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        await video.play();
+        settings.compare = false;
+        isWebcam = true;
+        webcamRunning = true;
+        void pumpWebcam();
+    }
+
+    async function pumpWebcam() {
+        if (!webcamRunning || !video || !ctx || !canvasEl) return;
+        const cap = captureFrame(video, WEBCAM_MAX_EDGE);
+        if (cap) {
+            if (
+                canvasEl.width !== cap.width ||
+                canvasEl.height !== cap.height
+            ) {
+                canvasEl.width = cap.width;
+                canvasEl.height = cap.height;
+            }
+            current = cap.image;
+            const segs = await client.frame(cap.image, {
+                threshold: WEBCAM_THRESHOLD,
+                subdivideOn: derivePolarity(settings.line, settings.background),
+                contrast: settings.contrast,
+            });
+            if (webcamRunning && ctx) {
+                allSegments = segs;
+                redrawAll(ctx, segs, style(), -Infinity);
+            }
+        }
+        if (webcamRunning) requestAnimationFrame(() => void pumpWebcam());
+    }
+
+    export function freezeWebcam() {
+        webcamRunning = false;
+        stopStream();
+        // Turn the frozen frame into a normal editable still: this re-enables the
+        // style/detail controls and restores "Start webcam" so it can be resumed.
+        isWebcam = false;
+        if (current) {
+            originalSrc = imageToDataUrl(current);
+            build(); // rebuild at full detail so the Detail slider spans its full range
+        }
+    }
+    export function stopWebcam() {
+        webcamRunning = false;
+        isWebcam = false;
+        stopStream();
+        void loadSrc(DEFAULT_SAMPLE.src);
+    }
+    function stopStream() {
+        stream?.getTracks().forEach((t) => t.stop());
+        stream = null;
+        video = null;
+    }
+
+    function redraw() {
+        if (ctx && current)
+            redrawAll(ctx, allSegments, style(), settings.threshold);
+    }
+
+    // Build to the finest detail (DETAIL_MIN) once; the slider then filters by
+    // cutoff without recomputing. The worker streams batches we draw as they land.
+    function build() {
+        if (!ctx || !current) return;
+        allSegments = [];
+        clearCanvas(ctx, style());
+        const subdivideOn = derivePolarity(settings.line, settings.background);
+        client.load(
+            current,
+            { threshold: DETAIL_MIN, subdivideOn, contrast: settings.contrast },
+            (segs) => {
+                allSegments.push(...segs);
+                if (ctx) drawSegments(ctx, segs, style(), settings.threshold);
+            },
+        );
+    }
+
+    export async function loadSrc(src: string) {
+        const { image, width, height } = await loadImageFromSrc(src);
+        originalSrc = src;
+        applyImage(image, width, height);
+    }
+    export async function loadFile(file: File) {
+        const { image, width, height } = await loadImageFromFile(file);
+        originalSrc = URL.createObjectURL(file);
+        applyImage(image, width, height);
+    }
+    function applyImage(image: ImageLike, width: number, height: number) {
+        current = image;
+        if (canvasEl) {
+            canvasEl.width = width;
+            canvasEl.height = height;
+        }
+        build();
+    }
+
+    onMount(() => {
+        ctx = canvasEl!.getContext("2d");
+        void loadSrc(DEFAULT_SAMPLE.src);
+        return () => {
+            webcamRunning = false;
+            stopStream();
+            client.dispose();
+        };
+    });
+
+    // Threshold/line-weight/colour changes just redraw (filtered). But inverting
+    // the colours flips the subdivision polarity, which changes the mesh -> rebuild.
+    let lastPolarity = derivePolarity(settings.line, settings.background);
+    let lastContrast = settings.contrast;
+    $effect(() => {
+        const polarity = derivePolarity(settings.line, settings.background);
+        const contrast = settings.contrast;
+        void settings.threshold;
+        void settings.lineWidth;
+        void settings.background;
+        void settings.line;
+        if (!ctx || !current || isWebcam) return;
+        // Contrast and polarity change the sampled mesh -> rebuild; everything else
+        // is display-only -> redraw (filtered).
+        if (polarity !== lastPolarity || contrast !== lastContrast) {
+            lastPolarity = polarity;
+            lastContrast = contrast;
+            build();
+        } else {
+            redraw();
+        }
+    });
+
+    function onDrop(e: DragEvent) {
+        e.preventDefault();
+        dragging = false;
+        const file = e.dataTransfer?.files?.[0];
+        if (file) void loadFile(file);
+    }
 </script>
 
 <div
-  class="relative inline-block leading-none rounded-lg ring-1 ring-border transition-shadow"
-  class:ring-2={dragging}
-  class:ring-primary={dragging}
-  role="img"
-  aria-label="Triangle art canvas — drop an image to load it"
-  ondragover={(e) => {
-    e.preventDefault();
-    dragging = true;
-  }}
-  ondragleave={() => (dragging = false)}
-  ondrop={onDrop}
+    class="relative inline-block leading-none ring-1 ring-border transition-shadow"
+    class:ring-2={dragging}
+    class:ring-primary={dragging}
+    role="img"
+    aria-label="Triangle art canvas — drop an image to load it"
+    ondragover={(e) => {
+        e.preventDefault();
+        dragging = true;
+    }}
+    ondragleave={() => (dragging = false)}
+    ondrop={onDrop}
 >
-  <canvas
-    bind:this={canvasEl}
-    class="block h-auto max-h-[82vh] w-auto max-w-full rounded-[10px] shadow-2xl shadow-black/50"
-  ></canvas>
-  <CompareSlider src={originalSrc} active={settings.compare && !isWebcam} />
-  {#if dragging}
-    <div
-      class="absolute inset-0 grid place-items-center bg-background/70 text-sm font-medium rounded-lg pointer-events-none"
-    >
-      Drop image to triangulate
-    </div>
-  {/if}
+    <canvas
+        bind:this={canvasEl}
+        class="block h-auto max-h-[82vh] w-auto max-w-full shadow-2xl shadow-black/50"
+    ></canvas>
+    <CompareSlider src={originalSrc} active={settings.compare && !isWebcam} />
+    {#if dragging}
+        <div
+            class="absolute inset-0 grid place-items-center bg-background/70 text-sm font-medium pointer-events-none"
+        >
+            Drop image to triangulate
+        </div>
+    {/if}
 </div>
