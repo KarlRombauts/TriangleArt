@@ -26,8 +26,8 @@ I wrote up the original maths and the for the first version here:
 
 - The image starts as a rectangle, split along its diagonal into two right triangles.
 - Each triangle is sampled for its average brightness, weighted by its area. Large, bright
-  triangles keep are split and smaller ones terminate. 
-- Originally I always cut the triangle at the right angle. But in this version the split slides along the triangle's longest edge to land on the strongest light/dark boundary. This means that the triangle edges more closely follow the contours of the photo. 
+  triangles keep splitting and smaller ones stop.
+- The main change from the original: instead of always cutting at the right angle, I now pick the *best angle to bisect*. The cut runs from a vertex to the point along the opposite edge where the brightness changes most, so the triangle edges line up with the contours in the photo (it falls back to a straight halving when a triangle has no clear edge). 
 - All the triangle subdivision calculations run in a web worker so the interface stays responsive.
 
 ## Features
